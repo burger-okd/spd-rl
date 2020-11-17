@@ -3,6 +3,7 @@
 # %%
 import gym
 import numpy as np
+import random
 
 import torch
 import torch.nn as nn
@@ -13,7 +14,7 @@ from collections import deque
 
 
 # %%
-TRAINING  = 30
+TRAINING  = 300
 GAMMA = 0.99
 LR    = 0.001
 
@@ -32,8 +33,7 @@ SA = state_size * action_size
 # %%
 #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 class VNet(nn.Module):
-    """
-    V_net = nn.Sequential(nn.Linear(state_size,hidden_size), 
+    """V_net = nn.Sequential(nn.Linear(state_size,hidden_size), 
                           nn.ReLU(),
                           nn.Linear(hidden_size,1)
                          )
@@ -49,13 +49,11 @@ class VNet(nn.Module):
         return x
 
 class MuNet(nn.Module):
-    """
-    mu_net = nn.Sequential(nn.Linear(state_size,hidden_size), 
+    """ mu_net = nn.Sequential(nn.Linear(state_size,hidden_size), 
                            nn.ReLU(),
                            nn.Linear(hidden_size,action_size),
-                           nn.Softmax(dim=0)            
+                           torch.exp()          
                           )
-
     """
     def __init__(self):
         super(MuNet, self).__init__()
@@ -65,7 +63,7 @@ class MuNet(nn.Module):
     def forward(self, x):
         x = F.relu(self.fc1(x))
         ### makes mu greater than 0
-        x = F.softmax(self.fc2(x), dim = 0)
+        x = torch.exp(self.fc2(x))
         return x
 
 v_net  = VNet()
