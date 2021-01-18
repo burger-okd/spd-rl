@@ -15,13 +15,13 @@ from collections import deque
 
 
 # %%
-TRAINING  = 3000
+TRAINING  = 2000
 GAMMA = 0.99
 
-MAX_LEN  = 300
+MAX_LEN  = 1000
 memory   = deque(maxlen = MAX_LEN)
 
-env = gym.make('FrozenLake-v0', is_slippery = False).env
+env = gym.make('FrozenLake-v0').env
 
 state_size  = env.observation_space.n
 action_size = env.action_space.n
@@ -33,6 +33,11 @@ SA = state_size * action_size
 # %%
 #device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 class VNet(nn.Module):
+    """V_net = nn.Sequential(nn.Linear(state_size,hidden_size), 
+                          nn.ReLU(),
+                          nn.Linear(hidden_size,1)
+                         )
+    """
     def __init__(self):
         super(VNet, self).__init__()
         self.fc1 = nn.Linear(state_size, hidden_size)
@@ -44,6 +49,12 @@ class VNet(nn.Module):
         return x
 
 class MuNet(nn.Module):
+    """ mu_net = nn.Sequential(nn.Linear(state_size,hidden_size), 
+                           nn.ReLU(),
+                           nn.Linear(hidden_size,action_size),
+                           torch.exp()          
+                          )
+    """
     def __init__(self):
         super(MuNet, self).__init__()
         self.fc1 = nn.Linear(state_size, hidden_size)
@@ -72,15 +83,17 @@ def one_hot(state):
 
 
 # %%
-for state in range(state_size -1):
-    for action in range(action_size):
-        next_state, reward, done, info = env.step(action)
-        memory.append([state, action, reward, next_state, done])
-
 for i in range(TRAINING):
+    ### State sampled uniformly
+    state = np.random.choice(state_size - 1)
+    action = np.random.choice(action_size)
+    next_state, reward, done, info = env.step(action)
+
+    memory.append([state, action, reward, next_state, done])
+
     lagr_v  = 0
     lagr_mu = 0
-    for state, action, reward, next_state, done in random.sample(memory, 4):
+    for state, action, reward, next_state, done in random.sample(memory, min(16,len(memory))):
         with torch.no_grad():
             fixed_mu     = mu_net(one_hot(state))[action]
             fixed_v      = v_net(one_hot(state)) 
@@ -118,11 +131,9 @@ for e in range(TEST):
     while not done:
         #env.render()
         mu = mu_net(one_hot(state))
-        action_prob = mu.detach().numpy()/mu.sum().item()
-        action = np.random.choice(action_size, p = action_prob)
-        #action = torch.argmax(mu)
+        action = torch.argmax(mu)
         
-        next_state, reward, done, info = env.step(action)
+        next_state, reward, done, info = env.step(action.item())
         state = next_state
     
     if reward == 1:
@@ -131,7 +142,7 @@ for e in range(TEST):
 print(f"Total success: {success}/{TEST}")
 
 # %%
-action_prob
-
+mu
 # %%
+mu_net(one_hot(14))
 # %%
